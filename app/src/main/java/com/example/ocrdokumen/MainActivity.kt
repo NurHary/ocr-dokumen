@@ -2,6 +2,7 @@ package com.example.ocrdokumen
 
 import android.app.Dialog
 import android.graphics.drawable.shapes.Shape
+import android.icu.text.CaseMap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,9 +38,17 @@ import org.w3c.dom.Text
 
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ModifierLocalBeyondBoundsLayout
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -145,38 +154,48 @@ fun ButtonUi(modifier: Modifier = Modifier) {
 fun confirmTakePhoto(
     onDismissRequest: () -> Unit,
     onConfirmation: () -> Unit,
-){
-    AlertDialog(
+) {
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card (
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp)
+                .padding(16.dp),
+            shape = RoundedCornerShape(20.dp)
 
-        title = {Text( "Kirim Foto?")},
-        text = {Text("Pastikan Foto Benar")},
-        onDismissRequest = {
-            onDismissRequest()
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    // Simpan Foto
-                    onDismissRequest()
+            )
+        {
+            Column (
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                // Isi
+                Text(text = "Uji Coba", modifier = Modifier.size(20.dp))
+
+                Row(modifier = Modifier.padding(15.dp)) {
+                    TextButton(
+                        onClick = {
+                            // Simpan Foto
+                            onDismissRequest()
+                        }
+                    ) {
+                        Text("Ambil ulang Foto")
+
+                    }
+                    TextButton(
+                        onClick = {
+                            // Simpan Foto
+                            onConfirmation()
+                        }
+                    ) {
+                        Text("Simpan Foto")
+
+                    }
                 }
-            ) {
-                Text("Ambil ulang Foto")
-
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                // Simpan Foto
-                    onConfirmation()
-                }
-            ) {
-                Text("Simpan Foto")
-
-            }
-        },
-
-    )
+        }
+    }
 }
 
 
