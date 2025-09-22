@@ -12,16 +12,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.Snackbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.focusModifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.LineHeightStyle
@@ -29,19 +34,34 @@ import androidx.compose.ui.unit.dp
 import com.example.ocrdokumen.ui.theme.OcrDokumenTheme
 import org.w3c.dom.Text
 
+import androidx.camera.core.*
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+
             OcrDokumenTheme {
+
                 var currentBluetoothConnection = remember { mutableStateOf("") }
+                val scope = rememberCoroutineScope()
+                val snackbarHostState = remember { SnackbarHostState() }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
+
+                    // Main Layout
                     Box (
                         modifier = Modifier.padding(innerPadding).fillMaxSize()
                     ) {
+                        // SnackBar
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                            )
                         Column (modifier = Modifier.align(Alignment.TopCenter)) {
                             Row() {
                                 // ini adalah tombol setting bluetooth
@@ -52,6 +72,7 @@ class MainActivity : ComponentActivity() {
                                 Button(
                                     onClick = {
                                     //bluetooth
+                                        scope.launch { snackbarHostState.showSnackbar("Bluetooth") }
                                 },
                                     shape= RectangleShape,
                                     modifier = Modifier.padding( all = 10.dp)
@@ -60,7 +81,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             Text(text = "Bluetooth Tidak Tersambung", modifier = Modifier.padding(top = 5.dp))
-                            Row() {
+                            Row( modifier = Modifier.padding(all = 10.dp)) {
                                 Button(
                                     shape = RectangleShape,
                                     onClick = {
@@ -82,10 +103,11 @@ class MainActivity : ComponentActivity() {
                         // // // Kamera
                         Button(
                             onClick = { // button untuk kamera
+
                         },
                             modifier = Modifier.align(Alignment.Center),
                             shape = CircleShape){
-                            Text(text = "cobak jajal pencetten iki")
+                            Text(text = "Camera")
                         }
                     }
                 }
@@ -103,6 +125,7 @@ fun ButtonUi(modifier: Modifier = Modifier) {
 fun button_click_one(){
 
 }
+
 
 
 //@Composable
