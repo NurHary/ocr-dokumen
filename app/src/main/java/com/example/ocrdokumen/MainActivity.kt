@@ -1,5 +1,6 @@
 package com.example.ocrdokumen
 
+import android.app.Dialog
 import android.graphics.drawable.shapes.Shape
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -36,6 +37,8 @@ import org.w3c.dom.Text
 
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import kotlinx.coroutines.launch
 
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
                 var currentBluetoothConnection = remember { mutableStateOf("") }
                 val scope = rememberCoroutineScope()
                 val snackbarHostState = remember { SnackbarHostState() }
+                var confirmPhoto = remember { mutableStateOf(false) }
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
 
@@ -103,11 +107,27 @@ class MainActivity : ComponentActivity() {
                         // // // Kamera
                         Button(
                             onClick = { // button untuk kamera
+                                confirmPhoto.value = true
 
                         },
                             modifier = Modifier.align(Alignment.Center),
                             shape = CircleShape){
                             Text(text = "Camera")
+                        }
+
+                        // DoubleCheck Photo
+                        when {
+                            confirmPhoto.value -> {
+                                confirmTakePhoto(
+                                    onDismissRequest = {confirmPhoto.value = false},
+                                    onConfirmation = {
+                                        confirmPhoto.value = false
+                                        // Kirim Ke Bluetooth
+                                        println("Mengirim Ke Bluetooth")
+
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -121,11 +141,43 @@ fun ButtonUi(modifier: Modifier = Modifier) {
 
 }
 
+@Composable
+fun confirmTakePhoto(
+    onDismissRequest: () -> Unit,
+    onConfirmation: () -> Unit,
+){
+    AlertDialog(
 
-fun button_click_one(){
+        title = {Text( "Kirim Foto?")},
+        text = {Text("Pastikan Foto Benar")},
+        onDismissRequest = {
+            onDismissRequest()
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    // Simpan Foto
+                    onDismissRequest()
+                }
+            ) {
+                Text("Ambil ulang Foto")
 
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                // Simpan Foto
+                    onConfirmation()
+                }
+            ) {
+                Text("Simpan Foto")
+
+            }
+        },
+
+    )
 }
-
 
 
 //@Composable
