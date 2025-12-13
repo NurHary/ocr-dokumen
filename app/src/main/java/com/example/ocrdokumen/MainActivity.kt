@@ -1,15 +1,7 @@
 package com.example.ocrdokumen
 
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
 import android.os.Bundle
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.location.LocationManager
-import android.provider.Settings
+import android.widget.EditText
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -26,7 +18,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
@@ -36,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import com.example.ocrdokumen.ui.theme.OcrDokumenTheme
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -45,47 +38,41 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.modifier.modifierLocalConsumer
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
+
+import okhttp3.Call
+import okhttp3.Callback
+
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.internal.format
+import java.io.IOException
+
 
 const val REQUEST_ENABLE_BLUETOOTH: Int = 255091
 const val REQUEST_ENABLE_GPS: Int = 255555
 
 class MainActivity : ComponentActivity() {
-    var GBluetoothAvailableDevices = mutableStateListOf<BluetoothDevice?>()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
+//
+        val cliently = OkHttpClient()
+        val urly = "http://192.168.43.19:8000/ping" // TODO: Buat Input Teks untuk Input IP ADDRESS
+
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
 
             OcrDokumenTheme {
-
-                val bluetoothManager: BluetoothManager = getSystemService(BluetoothManager::class.java)
-                val locationManager: LocationManager = getSystemService(LocationManager::class.java)
-
-                val bluetoothAdapter : BluetoothAdapter? = bluetoothManager.adapter;
-                var isGpsEnabled : Boolean = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-
-
-//                var bt_activity_launcher: ActivityResultLauncher<Intent> = registerForActivityResult(
-//                    ActivityResultContracts.StartActivityForResult(),
-//                    ActivityResultCallback<ActivityResult>(){
-//                        @Override
-//                        fun onActivityResult(result: ActivityResult){
-//
-//                        }
-//                    }
-
-//                )
-
-                val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-                registerReceiver(receiver, filter)
 
                 val scope = rememberCoroutineScope()
                 val snackbarHostState = remember { SnackbarHostState() }        // Snackbar Setelah melakukan pengambilan foto
@@ -93,6 +80,9 @@ class MainActivity : ComponentActivity() {
                 var confirmPhoto = remember { mutableStateOf(false) }
                 // Untuk Card Bluetooth
                 var wifiConnect = remember { mutableStateOf(false) }
+                var cekApakahTelahTerconnect = remember { mutableStateOf(false) }
+
+                var memCustomHttpAddress = remember {mutableStateOf("")}
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
@@ -109,69 +99,64 @@ class MainActivity : ComponentActivity() {
                             hostState = snackbarHostState,
                             modifier = Modifier.align(Alignment.BottomCenter),
                             )
-                        Column (modifier = Modifier.align(Alignment.TopCenter)) {
+                        Column (verticalArrangement = Arrangement.Top, horizontalAlignment = Alignment.CenterHorizontally) {
                             // BLUETOOTH
-                            Row() {
+                            Row(horizontalArrangement = Arrangement.Absolute.Center, modifier = Modifier.padding(
+                                PaddingValues(horizontal = 20.dp, )).padding(top = 20.dp)) {
+                                // Notes: url
+                                OutlinedTextField(value = memCustomHttpAddress.value, onValueChange = {text -> memCustomHttpAddress.value = text}, modifier = Modifier.width(250.dp).horizontalScroll(rememberScrollState()))
                                 Button(
 
                                     onClick = {
-                                        // Cek apabila Hp Support Bluetooth
-                                            // Hp Tidak Kentang
-                                        if (bluetoothAdapter != null) {
-                                            if (bluetoothAdapter?.isEnabled == false) {
-                                                scope.launch { snackbarHostState.showSnackbar("Bluetooth Tidak Diizinkan") }
-                                                val enableBtIntent =
-                                                    Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-                                                // TODO: Minta Izin Bluetooth
-                                                startActivityForResult(
-                                                    enableBtIntent, // Ignore Errors
-                                                    REQUEST_ENABLE_BLUETOOTH
-                                                )
+                                                val requstly = Request.Builder().url(memCustomHttpAddress.value).build()
+                                                cliently.newCall(requstly).enqueue(object : Callback{
+                                                    override fun onFailure(
+                                                        call: Call,
+                                                        e: IOException
+                                                    ) {
+                                                        cekApakahTelahTerconnect.value = false
+                                                        scope.launch { snackbarHostState.showSnackbar(
+                                                            String.format("%s : Tidak Dapat Respon", e) )}
+                                                    }
 
-                                            } else {
-                                                // scope.launch { snackbarHostState.showSnackbar("Bluetooth Diizinkan")
-                                                // TODO: Pindahkan layar / timpa dan kasih opsi untuk membenarkan Bluetooth
-
-                                                // Perangkat Yang Telah Disambungkaval
-//                                                val requestCode = 1;
-//                                                val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-//                                                   putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
-//                                                }
-//                                                startActivityForResult(discoverableIntent, requestCode)
-                                                // ini untuk menjadikan hp ini yang discoverable
-                                                if (!isGpsEnabled){
-                                                    val mapIntent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                                                    startActivityForResult(mapIntent, REQUEST_ENABLE_GPS)
-                                                }
-                                                wifiConnect.value = true
-                                            }
-                                        }
-
-                                    //bluetooth
-                                },
-                                    shape= RectangleShape,
-                                    modifier = Modifier.padding( all = 10.dp)
+                                                    override fun onResponse(
+                                                        call: Call,
+                                                        response: Response
+                                                    ) {
+                                                        cekApakahTelahTerconnect.value = true
+                                                        scope.launch { snackbarHostState.showSnackbar("Dapat Respon") }
+                                                    }
+                                                }) // TODO: PINDAH
+//                                                wifiConnect.value = true
+                                    },
+                                    shape = RectangleShape,
+                                    modifier = Modifier.padding(all = 10.dp)
                                 ) {
-                                    Text(text = "Connect Perangkat")
+                                    Text(text = "Connect HTTP", fontSize = 12.sp)
                                 }
-                                when {
-                                    wifiConnect.value -> { // TODO: &&
-                                        BluetoothConnectToDevice(
-                                            onDismissRequest = {wifiConnect.value = false},
-                                            onConfirmation = {
-                                                wifiConnect.value = false
-                                                // NOTES
-                                                // Kirim Ke Bluetooth
-                                                println("Mengirim Ke Bluetooth")
-
-                                            },
-                                            bluetoothAdapter,
-                                            GBluetoothAvailableDevices
-                                        )
-                                    }
+//                                when {
+//                                    wifiConnect.value -> { // TODO: &&
+//                                        BluetoothConnectToDevice(
+//                                            onDismissRequest = {wifiConnect.value = false},
+//                                            onConfirmation = {
+//                                                wifiConnect.value = false
+//                                                // NOTES
+//                                                // Kirim Ke Bluetooth
+//
+//                                            }
+//                                            )
+//                                    }
+//                                }
+//                            }
+                            }
+                            Row(horizontalArrangement = Arrangement.Absolute.Center) {
+                                if (cekApakahTelahTerconnect.value){
+                                    Text(text = "Telah Tersambung", modifier = Modifier.padding(top = 5.dp)) // TODO: ubah ini ke remember
+                                }
+                                else{
+                                    Text(text = "Belum Tersambung", modifier = Modifier.padding(top = 5.dp)) // TODO: ubah ini ke remember
                                 }
                             }
-                            Text(text = "Bluetooth Tidak Tersambung", modifier = Modifier.padding(top = 5.dp)) // TODO: ubah ini ke remember
                         }
                         // // // Kamera
                         Button(
@@ -186,6 +171,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // DoubleCheck Photo
+
                         when {
                             confirmPhoto.value -> { // TODO: &&
                                 confirmTakePhoto(
@@ -205,29 +191,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    private val receiver = object : BroadcastReceiver() {
 
-        override fun onReceive(context: Context, intent: Intent) {
-            val action: String? = intent.action
-            when(action) {
-                BluetoothDevice.ACTION_FOUND -> {
-                    // Discovery has found a device. Get the BluetoothDevice
-                    // object and its info from the Intent.
-                    val device: BluetoothDevice? =
-                        intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                    GBluetoothAvailableDevices.add(device)
-                    val deviceName = device?.name
-                    println(deviceName)
-                    val deviceHardwareAddress = device?.address // MAC address
-                    println(deviceHardwareAddress)
-                }
-            }
-        }
-    }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(receiver)
     }
 }
 
@@ -284,101 +251,98 @@ fun confirmTakePhoto(
     }
 }
 
-@Composable
-fun BluetoothConnectToDevice(
-    onDismissRequest: () -> Unit,
-    onConfirmation: () -> Unit,
-    btadapter: BluetoothAdapter?,
-    btdevice: SnapshotStateList<BluetoothDevice?>,
-){
-//    val pairedDevices: Set<BluetoothDevice>? = btadapter?.bondedDevices
-//    pairedDevices?.forEach { device ->
-//        val deviceName = device.name
-//        val deviceHardwareAddress = device.address // MAC address
+//@Composable
+//fun BluetoothConnectToDevice(
+//    onDismissRequest: () -> Unit,
+//    onConfirmation: () -> Unit,
+//){
+////    val pairedDevices: Set<BluetoothDevice>? = btadapter?.bondedDevices
+////    pairedDevices?.forEach { device ->
+////        val deviceName = device.name
+////        val deviceHardwareAddress = device.address // MAC address
+////    }
+//    Dialog(onDismissRequest = { onDismissRequest() }) {
+//        Card (
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .height(750.dp)
+//                .width(750.dp)
+//                .padding(16.dp),
+//            shape = RoundedCornerShape(20.dp)
+//
+//        )
+//        {
+//            // Pemilihan
+//            Column (modifier = Modifier
+//                .padding(15.dp)
+//                .height(600.dp)
+//                .width(750.dp)
+//                .verticalScroll(
+//                    rememberScrollState()
+//                ))
+//            {
+//                // Jaringan Terkoneksi
+//                Text(text= "Koneksi Bluetooth Saat Ini   ···················", modifier = Modifier.fillMaxWidth(), color = Color.DarkGray)
+//                // Jaringan Tidak Terkoneksi
+//                Text(text= "Koneksi Bluetooth Tersedia   ·················", modifier = Modifier.fillMaxWidth(), color = Color.DarkGray)
+//                for (i in 1..12){
+//                    bluetooth_box("Bahlil", "Etanol", {jajal2()})
+//                }
+//            }
+//            Row(modifier = Modifier
+//                .padding(15.dp)
+//                .fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Absolute.SpaceEvenly) {
+//                Button(shape = RoundedCornerShape(4.dp), onClick = {}) { Text("Refresh", fontSize = 12.sp)}
+//                TextButton(
+//                    onClick = {
+//                        // Simpan Foto
+//                        onDismissRequest()
+//                    }
+//                ) {
+//                    Text("Batal")
+//
+//                }
+//                TextButton(
+//                    onClick = {
+//                        // Simpan Foto
+//                        onConfirmation()
+//                    }
+//                ) {
+//                    Text("Selesai")
+//
+//                }
+//            }
+//        }
 //    }
-    Dialog(onDismissRequest = { onDismissRequest() }) {
-        Card (
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(750.dp)
-                .width(750.dp)
-                .padding(16.dp),
-            shape = RoundedCornerShape(20.dp)
-
-        )
-        {
-            // Pemilihan
-            Column (modifier = Modifier
-                .padding(15.dp)
-                .height(600.dp)
-                .width(750.dp)
-                .verticalScroll(
-                    rememberScrollState()
-                ))
-            {
-                // Jaringan Terkoneksi
-                Text(text= "Koneksi Bluetooth Saat Ini   ···················", modifier = Modifier.fillMaxWidth(), color = Color.DarkGray)
-                // Jaringan Tidak Terkoneksi
-                Text(text= "Koneksi Bluetooth Tersedia   ·················", modifier = Modifier.fillMaxWidth(), color = Color.DarkGray)
-                btdevice?.forEach { device -> bluetooth_box(device!!.name, device!!.address, {}) }
-                for (i in 1..12){
-                    bluetooth_box("Bahlil", "Etanol", {jajal2()})
-                }
-            }
-            Row(modifier = Modifier
-                .padding(15.dp)
-                .fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.Absolute.SpaceEvenly) {
-                Button(shape = RoundedCornerShape(4.dp), onClick = {}) { Text("Refresh", fontSize = 12.sp)}
-                TextButton(
-                    onClick = {
-                        // Simpan Foto
-                        onDismissRequest()
-                    }
-                ) {
-                    Text("Batal")
-
-                }
-                TextButton(
-                    onClick = {
-                        // Simpan Foto
-                        onConfirmation()
-                    }
-                ) {
-                    Text("Selesai")
-
-                }
-            }
-        }
-    }
-
-}
+//
+//}
 
 @Composable
 fun discover_devices(){}
 
-@Composable
-fun bluetooth_box(name: String, address: String, clickFn: () -> Unit
-){
-    Column (
-        // verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier
-            .clickable(enabled = true, onClick = clickFn)
-            .height(80.dp)
-            .fillMaxWidth()
-            .padding(20.dp)
-    ){
-        Row(
-            horizontalArrangement = Arrangement.Absolute.SpaceBetween,
-            modifier = Modifier
-                .fillMaxWidth()
-        ) {
-            Text(text = name, color = Color.Black, fontSize = 10.sp)
-            // Spacer(modifier = Modifier.width(60.dp))
-            Text(text="Tidak Tersambung", color = Color.Black, fontSize = 10.sp)
-        }
-        Text(text = address, color = Color.Black, fontSize = 10.sp)
-    }
-}
+//@Composable
+//fun bluetooth_box(name: String, address: String, clickFn: () -> Unit
+//){
+//    Column (
+//        // verticalArrangement = Arrangement.spacedBy(20.dp),
+//        modifier = Modifier
+//            .clickable(enabled = true, onClick = clickFn)
+//            .height(80.dp)
+//            .fillMaxWidth()
+//            .padding(20.dp)
+//    ){
+//        Row(
+//            horizontalArrangement = Arrangement.Absolute.SpaceBetween,
+//            modifier = Modifier
+//                .fillMaxWidth()
+//        ) {
+//            Text(text = name, color = Color.Black, fontSize = 10.sp)
+//            // Spacer(modifier = Modifier.width(60.dp))
+//            Text(text="Tidak Tersambung", color = Color.Black, fontSize = 10.sp)
+//        }
+//        Text(text = address, color = Color.Black, fontSize = 10.sp)
+//    }
+//}
 
 fun jajal2(){
     println("Farhan Memek")
