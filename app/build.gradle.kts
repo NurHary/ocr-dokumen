@@ -16,6 +16,14 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildFeatures {
+            viewBinding =  true
+        }
+        compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_1_8
+                    targetCompatibility =  JavaVersion.VERSION_1_8
+        }
     }
 
     buildTypes {
@@ -59,12 +67,17 @@ dependencies {
     implementation(libs.androidx.compose.material3)
 
         // Kotlin
-        implementation("androidx.fragment:fragment-ktx:$fragment_version")
+    implementation("androidx.fragment:fragment-ktx:$fragment_version")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+
 
     implementation ("androidx.camera:camera-core:1.5.0")
     implementation ("androidx.camera:camera-camera2:1.5.0")
     implementation ("androidx.camera:camera-lifecycle:1.5.0")
     implementation ("androidx.camera:camera-view:1.5.0")
+
+    implementation("androidx.camera:camera-video:1.5.0")
+    implementation ("androidx.camera:camera-extensions:1.5.0")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
@@ -75,4 +88,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
 }
