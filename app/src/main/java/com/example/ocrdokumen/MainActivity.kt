@@ -45,6 +45,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.icu.text.SimpleDateFormat
+import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import androidx.camera.core.ImageCapture
@@ -74,11 +75,15 @@ import androidx.navigation.compose.composable
 
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.Response
 import okhttp3.internal.format
+import java.io.File
 import java.io.IOException
 import java.util.Locale
 
@@ -95,6 +100,11 @@ class MainActivity : ComponentActivity() {
         val memCustomHttpAddress = remember {mutableStateOf("")}
         // Untuk Card Bluetooth
         val cekApakahTelahTerconnect = remember { mutableStateOf(false) }
+        val confirmPhoto = remember { mutableStateOf(false) }
+
+        val oldPhotoPath : MutableState<Uri> = remember { mutableStateOf(Uri.EMPTY) }
+        val currentPhotoPath : MutableState<Uri> = remember { mutableStateOf(Uri.EMPTY) }
+
         val navController = rememberNavController()
 
         NavHost (navController = navController, startDestination = Screen.Home.route) {
@@ -110,6 +120,10 @@ class MainActivity : ComponentActivity() {
 
             composable(Screen.Photo.route) {
                 PlacesWeCalledCamera(
+                    confirmPhoto = confirmPhoto,
+                    oldPhotoPath = oldPhotoPath,
+                    currentPhotoPath = currentPhotoPath,
+                    memCustomHttpAddress = memCustomHttpAddress,
                     pencetBack = {navController.popBackStack()}
                 )
             }
@@ -148,7 +162,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    private fun takePhoto() {
+    private fun takePhoto(
+        oldPhotoPath: MutableState<Uri>,
+        currentPhotoPath: MutableState<Uri>,
+        succedSavePhoto: () -> Unit)
+    {
         // Get a stable reference of the modifiable image capture use case
         Log.d("TAG", "TAKE PHOTO 1")
         val imageCapture = imageCapture ?: return
@@ -183,12 +201,15 @@ class MainActivity : ComponentActivity() {
                     Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
                 }
 
-                override fun
-                        onImageSaved(output: ImageCapture.OutputFileResults){
+                override fun onImageSaved(output: ImageCapture.OutputFileResults){
+                    // Here Here Here
                     val msg = "Photo capture succeeded: ${output.savedUri}"
-                    Log.d("TAG", "TAKE PHOTO Finale")
                     Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
                     Log.d(TAG, msg)
+
+                    // TODO
+                    currentPhotoPath.value = output.savedUri!!
+                    succedSavePhoto()
                 }
             }
         )
@@ -253,7 +274,7 @@ class MainActivity : ComponentActivity() {
             mutableListOf(
                 Manifest.permission.CAMERA,
                 Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                // Manifest.permission.WRITE_EXTERNAL_STORAGE
             ).apply {
                 if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
                     add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -275,7 +296,7 @@ class MainActivity : ComponentActivity() {
         val scope = rememberCoroutineScope()
         val snackbarHostState = remember { SnackbarHostState() }        // Snackbar Setelah melakukan pengambilan foto
         // Untuk Card Foto
-        var confirmPhoto = remember { mutableStateOf(false) }
+
 
         // For Camera
         val context = LocalContext.current
@@ -332,7 +353,8 @@ class MainActivity : ComponentActivity() {
                                         scope.launch { snackbarHostState.showSnackbar("Jangan Mengisi Kosong!") }
                                     } else {
                                         val requstly = Request.Builder()
-                                            .url(format("http://%s", memCustomHttpAddress)).build()
+                                            .url(format("http://%s/ping", memCustomHttpAddress.value)).build()
+                                        Log.d("CONN HTTP HP ARDRA", format("http://%s/ping", memCustomHttpAddress.value))
                                         cliently.newCall(requstly).enqueue(object : Callback {
                                             override fun onFailure(
                                                 call: Call,
@@ -402,20 +424,6 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // DoubleCheck Photo
-
-                    when {
-                        confirmPhoto.value -> { // TODO: &&
-                            confirmTakePhoto(
-                                onDismissRequest = { confirmPhoto.value = false },
-                                onConfirmation = {
-                                    confirmPhoto.value = false
-                                    // NOTEScekApakahTelahTerconnect.value
-                                    // Kirim Ke Bluetooth
-                                    println("Mengirim Ke Bluetooth")
-                                }
-                            )
-                        }
-                    }
                     Button(
                         onClick = { cekApakahTelahTerconnect.value = true }, modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -427,6 +435,10 @@ class MainActivity : ComponentActivity() {
     }
     @Composable
     fun PlacesWeCalledCamera(
+        confirmPhoto: MutableState<Boolean>,
+        oldPhotoPath: MutableState<Uri>,
+        currentPhotoPath: MutableState<Uri>,
+        memCustomHttpAddress: MutableState<String>,
         pencetBack: () -> Unit
     ) {
         val context = LocalContext.current
@@ -452,10 +464,12 @@ class MainActivity : ComponentActivity() {
 
                 // Capture
                 Button(
-                    onClick = {takePhoto()},
+                    onClick = {takePhoto(oldPhotoPath = oldPhotoPath, currentPhotoPath = currentPhotoPath, succedSavePhoto = {confirmPhoto.value = true})}, // TODO
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(10.dp),
+                        .padding(10.dp)
+                        .height(100.dp)
+                        .width(100.dp),
                     shape = CircleShape,
                     colors = ButtonColors(
                         containerColor = Color.White,
@@ -464,6 +478,59 @@ class MainActivity : ComponentActivity() {
                         disabledContainerColor = Color.Black
                     )
                 ) {}
+                when {
+                    confirmPhoto.value -> { // TODO: &&
+                        confirmTakePhoto(
+                            currentPhotoPath = currentPhotoPath,
+                            onDismissRequest = {
+                                try {
+                                    // Fungsi Untuk Menghapus Files
+                                    val rowsDeleted = context.contentResolver.delete(currentPhotoPath.value, null, null)
+
+                                    if (rowsDeleted > 0) {
+                                        Toast.makeText(context, "Foto dihapus", Toast.LENGTH_SHORT).show()
+                                        currentPhotoPath.value = Uri.EMPTY
+                                    } else {
+                                        Toast.makeText(context, "Gagal menghapus foto", Toast.LENGTH_SHORT).show()
+                                    }
+
+                                } catch (e: SecurityException) {
+                                    Toast.makeText(context, "Tidak ada izin menghapus file", Toast.LENGTH_SHORT).show()
+                                    Log.e(TAG, "Delete failed", e)
+                                }
+                                confirmPhoto.value = false
+                                               },
+                            onConfirmation = {
+
+                                // TODO:
+                                // Mengirim Files
+                                uploadImage(context = context, uri = currentPhotoPath.value, memCustomHttpAddress = memCustomHttpAddress)
+
+
+                                // Fungsi Untuk Menghapus Files
+                                try {
+                                    // Fungsi untuk Menghapus File
+                                    val rowsDeleted = context.contentResolver.delete(currentPhotoPath.value, null, null)
+                                    format("http://%s/ping", memCustomHttpAddress)
+                                    if (rowsDeleted > 0) {
+                                        Toast.makeText(context, "Foto dihapus", Toast.LENGTH_SHORT).show()
+                                        currentPhotoPath.value = Uri.EMPTY
+                                    } else {
+                                        Toast.makeText(context, "Gagal menghapus foto", Toast.LENGTH_SHORT).show()
+                                    }
+
+                                } catch (e: SecurityException) {
+                                    Toast.makeText(context, "Tidak ada izin menghapus file", Toast.LENGTH_SHORT).show()
+                                    Log.e(TAG, "Delete failed", e)
+                                }
+                                confirmPhoto.value = false
+                                // NOTEScekApakahTelahTerconnect.value
+                                // Kirim Ke Bluetooth
+                                println("Mengirim Ke Bluetooth")
+                            }
+                        )
+                    }
+                }
             }
             LaunchedEffect(Unit) {
                 startCamera(
@@ -476,12 +543,57 @@ class MainActivity : ComponentActivity() {
 
 
     }
+    fun uriToFile(context: Context, uri: Uri): File {
+        val inputStream = context.contentResolver.openInputStream(uri)!!
+        val file = File(context.cacheDir, "upload_image.jpg")
+
+        inputStream.use { input ->
+            file.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+        return file
+    }
+
+    fun uploadImage(context: Context, uri: Uri, memCustomHttpAddress: MutableState<String>) {
+        val client = OkHttpClient()
+
+        val file = uriToFile(context, uri)
+
+        val requestBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "image",
+                file.name,
+                file.asRequestBody("image/jpeg".toMediaType())
+            )
+            .build()
+
+        val request = Request.Builder()
+            // GANTI IP LAPTOP
+            .url(format("http://%s/pong", memCustomHttpAddress.value)) // url dari itu
+            .post(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("PAKET", format("iku iku iku iku %s", e))
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.body?.let {
+                    Log.d("PAKET", "Berhasil Mengirim Files")
+                }
+            }
+        })
+    }
 
 }
 
 
 @Composable
 fun confirmTakePhoto(
+    currentPhotoPath: MutableState<Uri>,
     onDismissRequest: () -> Unit,
     onConfirmation: () -> Unit,
 ) {
